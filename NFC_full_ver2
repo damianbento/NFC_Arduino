@@ -1,0 +1,213 @@
+#include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_PN532.h>
+#include <EEPROM.h>
+
+// If using the breakout with SPI, define the pins for SPI communication.
+//#define PN532_SCK  (2)
+//#define PN532_MOSI (3)
+#define PN532_SS   (4)
+#define PN532_MISO (5)
+
+// If using the breakout or shield with I2C, define just the pins connected
+// to the IRQ and reset lines.  Use the values below (2, 3) for the shield!
+#define PN532_IRQ   (2)
+#define PN532_RESET (3) // Not connected by default on the NFC Shield
+Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+
+//-----------------------------------------------------------------------------------------//
+
+void setup(void) 
+{
+  Serial.begin(115200);
+ 
+  // Configurar para leer etiquetas RFID
+  nfc.begin();
+  nfc.setPassiveActivationRetries(0xFF);
+  nfc.SAMConfig();
+  Serial.flush(); 
+  Serial.println("");
+  Serial.println("*******************************************************************");
+  Serial.println("*                    Seleccionar Opcion                           *");
+  Serial.println("*                                                                 *");
+  Serial.println("*  a) Leer Id de la Tarjeta           b) Leer Datos de la Tarjeta *");
+  Serial.println("*  c) Escribir datos de la Tarjeta    d) Modo normal              *");
+  Serial.println("*  e) Leer DB datos de la Tarjeta     f) Cargar tarjeta DB        *");
+  Serial.println("*                   g) Borrar Tarjeta DB                          *");
+  Serial.println("*                                                                 *");
+  Serial.println("*******************************************************************");
+}
+
+//-------------------------------------------------------------------------------------------//
+
+char validData;
+int value;
+int a = 0;
+
+
+
+//------------------------------------------------------------------------------------------//
+
+void printArray(byte *buffer, byte bufferSize) {
+   for (byte i = 0; i < bufferSize; i++) {
+      Serial.print(buffer[i] < 0x10 ? " 0" : " ");
+      Serial.print(buffer[i], DEC);
+   }
+}
+
+//-----------------------------------------------------------------------------------------//
+
+void loop(void) 
+{
+
+// .  set eeprom 
+  
+//EEPROM.write(0, 0x77);
+//EEPROM.write(1, 0xFB);
+//EEPROM.write(2, 0x76);
+//EEPROM.write(3, 0x89);
+
+//EEPROM.write(4, 137);
+//EEPROM.write(5, 93);
+//EEPROM.write(6, 76);
+//EEPROM.write(7, 121);
+
+
+
+  Serial.println("Pase la tarjeta");
+  uint8_t success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
+  uint8_t uidLength;
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);  
+  
+  
+if (Serial.available() > 0) {
+    int inByte = Serial.read();
+       switch (inByte) {
+      
+    case 'a':
+  
+  //uint8_t success;
+  //uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
+  //uint8_t uidLength;
+  //success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);  
+
+    
+    if (success) {
+    Serial.println("Tarjeta encontrada");
+    Serial.print("UID Longitud: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+    Serial.print("UID: "); printArray(uid, uidLength);
+    Serial.println("");
+  
+    delay(1000);
+  }
+  else
+  {    
+    Serial.println("Tarjeta no encontrada");
+  }
+          
+               
+        break;
+      
+      case 'b':
+if (success) 
+  {
+      Serial.println("Intentando autentificar bloque 4 con clave KEYA");
+      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+ 
+      success = nfc.mifareclassic_AuthenticateBlock(uid, uidLength, 4, 0, keya);   
+      if (success)
+      {
+        Serial.println("Sector 1 (Bloques 4 a 7) autentificados");
+        uint8_t data[16];
+          
+        success = nfc.mifareclassic_ReadDataBlock(4, data);    
+        if (success)
+        {          
+      Serial.println("Datos leidos de sector 4:");
+          nfc.PrintHexChar(data, 16);
+          Serial.println("");
+          delay(5000);               
+        }
+        else
+        {
+          Serial.println("Fallo al leer tarjeta");
+        }
+      }
+      else
+      {
+        Serial.println("Fallo autentificar tarjeta");
+      }
+    }
+        
+        break;
+      
+     case 'c':
+if (success) {
+      Serial.println("Intentando autentificar bloque 4 con clave KEYA");
+      uint8_t keya[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+ 
+      success = nfc.mifareclassic_AuthenticateBlock(uid, uidLength, 4, 0, keya);   
+      if (success)
+      {
+        Serial.println("Sector 1 (Bloques 4 a 7) autentificados");
+        uint8_t data[16];
+ 
+        memcpy(data, (const uint8_t[]){ 'D', 'a', 'm', 'i', 'a', '_', 'B', 'e', 'n', 't', 'o', 0, 0, 0 }, sizeof validData);
+        success = nfc.mifareclassic_WriteDataBlock (4, data);
+    
+        if (success)
+        {          
+          Serial.println("Datos escritos en bloque 4");
+          delay(10000);           
+        }
+        else
+        {
+          Serial.println("Fallo al escribir tarjeta");
+          delay(1000);   
+        }
+      }
+      else
+      {
+        Serial.println("Fallo autentificar tarjeta");
+        delay(1000); 
+      }
+    }
+   
+        break;
+    
+      
+      case 'd':
+        digitalWrite(5, HIGH);
+        break;
+      
+      
+      case 'e':
+
+int i;
+
+for (int a = 0; a <= 40; a++){
+ Serial.print(a);
+  for (int i = a; i <= a+3 ; i++) {
+    value = EEPROM.read(i);
+    Serial.print(" ");
+    Serial.print(value);
+    Serial.print(" ");
+    delay(10);
+  } 
+a = a+3;
+Serial.println(" ");
+}
+        
+        break;
+      
+      
+      
+      
+      
+      default:
+        Serial.println("Este es el Default");
+        delay(1000);
+    }
+  }
+}
